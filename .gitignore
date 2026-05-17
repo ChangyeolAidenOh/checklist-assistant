@@ -5,4 +5,4 @@ models/
 data/nhis_stats/*.csv
 data/product_summaries/*.pdf
 .chroma_db/
-.DS_Store
+.DS_Store!data/nhis_stats/real_lookup_table.csv
