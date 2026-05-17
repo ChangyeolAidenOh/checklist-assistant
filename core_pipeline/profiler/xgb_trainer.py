@@ -5,11 +5,11 @@ Trains a model to predict medical category interest scores
 from user demographic features.
 
 Training data:
-  - Primary: Kaggle Prudential Life Insurance (59,381 records)
-  - Calibration: NHIS aggregate statistics (Korean population patterns)
+  - Primary: NHIS 건강검진정보 (1M records) via train_with_real_data.py
+  - Fallback: Synthetic data derived from NHIS aggregate statistics
 
-If Prudential data is not available, uses synthetic training data
-derived from NHIS statistics.
+Note: For real data training, use scripts/train_with_real_data.py instead.
+This module provides synthetic fallback and model loading utilities.
 """
 
 import logging
@@ -132,64 +132,16 @@ def generate_synthetic_training_data(
     return features_df, targets_df
 
 
-def load_prudential_data(data_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame] | None:
-    """Load Kaggle Prudential dataset if available.
-
-    Expected file: data_dir / 'prudential_train.csv'
-    Download from: kaggle.com/c/prudential-life-insurance-assessment/data
-
-    Returns:
-        (features_df, targets_df) or None if not found
-    """
-    csv_path = data_dir / "prudential_train.csv"
-    if not csv_path.exists():
-        logger.info("Prudential data not found at %s", csv_path)
-        return None
-
-    logger.info("Loading Prudential data from %s", csv_path)
-    df = pd.read_csv(csv_path)
-
-    # Map Prudential features to our feature space
-    feature_cols = ["Ins_Age", "BMI", "Ht", "Wt"]
-    available_cols = [c for c in feature_cols if c in df.columns]
-
-    if "Ins_Age" not in df.columns:
-        logger.warning("Ins_Age column missing from Prudential data")
-        return None
-
-    # Map Response (1-8) to category-level risk scores
-    # Higher Response = higher risk = higher interest in coverage
-    response = df["Response"].values
-    max_response = 8.0
-
-    features_df = df[available_cols].copy()
-    features_df = features_df.rename(columns={"Ins_Age": "age"})
-
-    # Generate pseudo-targets from risk level
-    # This is a simplification: risk level maps to overall interest
-    targets = []
-    for r in response:
-        risk_ratio = r / max_response
-        cat_scores = []
-        for cat in INTEREST_CATEGORIES:
-            base = risk_ratio * 0.7 + np.random.normal(0, 0.1)
-            cat_scores.append(max(0.0, min(1.0, base)))
-        targets.append(cat_scores)
-
-    targets_df = pd.DataFrame(targets, columns=INTEREST_CATEGORIES)
-    return features_df, targets_df
-
-
 def train_model(
     data_dir: Path,
     force_retrain: bool = False,
 ) -> dict:
-    """Train XGBoost multi-output model.
+    """Train XGBoost multi-output model with synthetic data.
 
-    Tries Prudential data first, falls back to synthetic.
+    For real data training, use scripts/train_with_real_data.py instead.
 
     Returns:
-        {"models": {category: xgb_model}, "shap_explainers": {category: explainer}}
+        {"models": {category: xgb_model}, "feature_names": [...], "metrics": {...}}
     """
     MODEL_PATH.mkdir(exist_ok=True)
 
@@ -198,17 +150,11 @@ def train_model(
         with open(MODEL_FILE, "rb") as f:
             return pickle.load(f)
 
-    # Try Prudential data first
-    result = load_prudential_data(data_dir)
-    data_source = "prudential"
+    logger.info("Using synthetic training data")
+    nhis_dir = data_dir / "nhis_stats" if (data_dir / "nhis_stats").exists() else data_dir
+    features, targets = generate_synthetic_training_data(nhis_dir)
+    data_source = "synthetic"
 
-    if result is None:
-        logger.info("Using synthetic training data")
-        nhis_dir = data_dir / "nhis_stats" if (data_dir / "nhis_stats").exists() else data_dir
-        result = generate_synthetic_training_data(nhis_dir)
-        data_source = "synthetic"
-
-    features, targets = result
     features = features.fillna(0)
 
     X_train, X_test, y_train, y_test = train_test_split(

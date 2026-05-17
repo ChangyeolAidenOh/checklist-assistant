@@ -5,7 +5,7 @@ Generates interest-area vectors based on demographic profile.
 
 Model strategy:
   Phase 1 (rule-based): NHIS statistical lookup tables
-  Phase 2 (ML): XGBoost trained on NHIS + Kaggle Prudential data
+  Phase 2 (ML): XGBoost trained on NHIS 건강검진정보 (1M records)
   Fallback: Rule-based always available if model not trained
 
 Model tier: XGBoost / Rule-based (no LLM needed, cost = 0).

@@ -1,17 +1,10 @@
 """
-NHIS Data Processor.
+NHIS Data Processor (DEPRECATED).
 
-Processes HIRA/NHIS aggregate statistics into lookup tables
-for the Health Profiler.
+Superseded by real_data_processor.py which uses actual HIRA/NHIS public data.
+Kept for synthetic data fallback when real data is not available.
 
-Data source: 건강보험심사평가원 보건의료빅데이터개방시스템
-  - 진료비통계지표 (연령별·성별 현황)
-  - 의원 표시과목별 현황
-  - URL: https://opendata.hira.or.kr
-  - data.go.kr/data/15066009/fileData.do
-
-Phase 1: Synthetic data derived from published HIRA summaries.
-Phase 2: Plug in actual downloaded CSV files.
+Original purpose: Generate synthetic NHIS-style data for prototyping.
 """
 
 import logging

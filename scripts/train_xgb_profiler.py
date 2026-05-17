@@ -1,14 +1,10 @@
 """
-Train XGBoost profiler model.
+Train XGBoost profiler model (synthetic data fallback).
+
+For real data training, use: python scripts/train_with_real_data.py
 
 Usage:
-  # Train with synthetic data (immediate, no download needed)
   python scripts/train_xgb_profiler.py
-
-  # Train with Prudential data (download first from Kaggle)
-  python scripts/train_xgb_profiler.py --with-prudential
-
-  # Force retrain
   python scripts/train_xgb_profiler.py --force
 
 Run: python scripts/train_xgb_profiler.py
@@ -131,8 +127,6 @@ def step4_compare_rule_vs_xgb():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--force", action="store_true", help="Force retrain")
-    parser.add_argument("--with-prudential", action="store_true",
-                        help="Expect Prudential CSV in data/")
     args = parser.parse_args()
 
     (DATA_DIR / "nhis_stats").mkdir(parents=True, exist_ok=True)
