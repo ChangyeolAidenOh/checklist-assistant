@@ -350,7 +350,7 @@ python scripts/train_with_real_data.py
 python scripts/setup_rag.py --force
 
 # Run dashboard
-streamlit run app.py
+.streamlit run app.py
 ```
 
 ---
