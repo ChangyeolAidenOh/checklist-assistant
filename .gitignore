@@ -1,0 +1,8 @@
+.env
+.venv/
+__pycache__/
+models/
+data/nhis_stats/*.csv
+data/product_summaries/*.pdf
+.chroma_db/
+.DS_Store
