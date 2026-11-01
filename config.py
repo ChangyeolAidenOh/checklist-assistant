@@ -25,7 +25,11 @@ CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", str(PROJECT_ROOT / ".chroma
 CHROMA_COLLECTION = "coverage_docs"
 
 # RAG
-RAG_SIMILARITY_THRESHOLD = float(os.getenv("RAG_SIMILARITY_THRESHOLD", "0.65"))
+# Multilingual embedding (Korean-capable). all-MiniLM-L6-v2 (Chroma default) is English-only
+# and scores Korean queries below any sane threshold.
+RAG_EMBEDDING_MODEL = os.getenv("RAG_EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2")
+RAG_SIMILARITY_THRESHOLD = float(os.getenv("RAG_SIMILARITY_THRESHOLD", "0.45"))
+RAG_MAX_ELIGIBILITY_CHARS = int(os.getenv("RAG_MAX_ELIGIBILITY_CHARS", "6000"))  # cap 가입자격 (대형 상품은 수십만 자)
 RAG_TOP_K = int(os.getenv("RAG_TOP_K", "5"))
 
 # Guardrail

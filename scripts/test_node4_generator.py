@@ -77,7 +77,7 @@ def test_checklist_generation():
 
     generator = ChecklistGenerator()
     gap = make_sample_gap_analysis()
-    checklist = generator.generate(gap, product_name="무배당 메트라이프 건강보험")
+    checklist = generator.generate(gap, product_name="KB 5.10.10 플러스 건강보험(세만기)(무배당)(26.09)")
 
     print(f"  Title: {checklist.title}")
     print(f"  Summary: {checklist.summary}")

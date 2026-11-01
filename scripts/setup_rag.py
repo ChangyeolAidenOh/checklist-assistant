@@ -1,7 +1,7 @@
 """
 ChromaDB RAG Ingestion & Test.
 
-Ingests all 42 MetLife product summaries and tests retrieval.
+Ingests KB손해보험 상품요약서 PDFs (data/product_summaries/) and tests retrieval.
 
 Usage:
   # Ingest all PDFs
@@ -40,6 +40,7 @@ def ingest(force: bool = False):
 
     # Show current state
     stats = rag.get_stats()
+    print(f"Embedding model: {stats['embedding_model']}")
     print(f"Current state: {stats['total_chunks']} chunks from {stats['unique_sources']} sources")
 
     if force:
@@ -73,12 +74,12 @@ def test_queries(rag: CoverageRAG):
             "description": "General: cancer diagnosis coverage",
         },
         {
-            "query": "치매 간병 생활자금",
-            "description": "Specific: dementia care benefits",
+            "query": "치아 임플란트 보철 치료비",
+            "description": "Specific: dental implant/prosthetic benefits",
         },
         {
-            "query": "사망보험금 지급 조건",
-            "description": "General: death benefit conditions",
+            "query": "상해 후유장해 지급률",
+            "description": "General: injury disability benefit",
         },
         {
             "query": "면책사항 보험금을 지급하지 않는 경우",
@@ -105,14 +106,14 @@ def test_queries(rag: CoverageRAG):
             print(f"      {r.text[:100]}...")
 
     # Test product-specific search
-    print(f"\n--- Product-specific: 360 치매간병보험 보장내용 ---")
-    results = rag.search_for_coverage("360 치매간병")
+    print(f"\n--- Product-specific: 실손의료비보장보험 보장내용 ---")
+    results = rag.search_for_coverage("실손의료비")
     for i, r in enumerate(results[:3]):
         print(f"  [{i+1}] score={r.score:.3f} | {r.section}")
         print(f"      {r.text[:100]}...")
 
-    print(f"\n--- Product-specific: 360 암보험 면책사항 ---")
-    results = rag.search_for_exclusions("360 암보험")
+    print(f"\n--- Product-specific: 9회주는 암보험 면책사항 ---")
+    results = rag.search_for_exclusions("암보험")
     for i, r in enumerate(results[:3]):
         print(f"  [{i+1}] score={r.score:.3f} | {r.section}")
         print(f"      {r.text[:100]}...")

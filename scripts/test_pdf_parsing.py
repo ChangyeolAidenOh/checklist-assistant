@@ -1,5 +1,5 @@
 """
-Step 6: Real MetLife PDF Parsing Test.
+Step 6: Real KB손해보험 상품요약서 PDF Parsing Test.
 
 Tests:
   1. PDF text extraction (section detection)
@@ -14,7 +14,7 @@ Usage:
   python scripts/test_pdf_parsing.py
 
   # Single PDF
-  python scripts/test_pdf_parsing.py --file data/product_summaries/360_comprehensive.pdf
+  python scripts/test_pdf_parsing.py --file data/product_summaries/kb_25477_실손의료비보장보험.pdf
 
 Run: python scripts/test_pdf_parsing.py
 """
@@ -48,7 +48,7 @@ def find_pdfs() -> list[Path]:
     pdfs = sorted(PDF_DIR.glob("*.pdf"))
     if not pdfs:
         print(f"No PDFs found in {PDF_DIR}")
-        print("Place MetLife product summary PDFs there and rerun.")
+        print("Place KB손해보험 상품요약서 PDFs (공시실 > 상품목록(약관) > 상품요약서) there and rerun.")
     return pdfs
 
 
@@ -61,7 +61,7 @@ def test_extraction(pdf_path: Path) -> dict:
     sections = extract_sections(pdf_path)
 
     print(f"  Product name: {sections.product_name}")
-    print(f"  Pages: {sections.page_count}")
+    print(f"  Pages: {sections.page_count}  |  layout={sections.layout}  extractor={sections.extraction_method}")
     print(f"  Full text length: {len(sections.full_text):,} chars")
     print(f"  Sections detected:")
     print(f"    특이사항:  {len(sections.특이사항):>6,} chars {'✓' if sections.특이사항 else '✗'}")
@@ -135,16 +135,16 @@ if __name__ == "__main__":
     parser.add_argument("--extract-only", action="store_true",
                         help="Only test extraction, no LLM calls")
     parser.add_argument("--file", type=str, help="Test single PDF file")
-    parser.add_argument("--top4", action="store_true",
-                        help="Test only the 4 target products")
+    parser.add_argument("--core", "--top4", dest="core", action="store_true",
+                        help="Test only the core KB products (실손·건강·암·치아)")
     args = parser.parse_args()
 
     if args.file:
         pdfs = [Path(args.file)]
     else:
         pdfs = find_pdfs()
-        if args.top4:
-            keywords = ["360종합", "360암", "360치매", "모두의종신"]
+        if args.core:
+            keywords = ["25477", "25438", "25290", "25342"]  # 실손·5.10.10건강·9회암·치아
             filtered = []
             for pdf in pdfs:
                 import unicodedata

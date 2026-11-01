@@ -4,6 +4,7 @@ langgraph>=0.2.0
 langchain>=0.3.0
 langchain-anthropic>=0.3.0
 chromadb>=0.5.0
+# RAG embeddings (torch, ~1GB) are in requirements-rag.txt — not needed by the Streamlit dashboard
 
 # ML
 xgboost>=2.0.0

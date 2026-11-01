@@ -20,21 +20,43 @@ from core_pipeline.profiler.health_profiler import InterestVector, INTEREST_CATE
 logger = logging.getLogger(__name__)
 
 # Mapping: coverage categories -> interest categories
+# Mapping: coverage category / item-name keywords -> interest categories.
+# Keys are matched as substrings against BOTH item.category and item.item_name,
+# so 손해보험 담보명(상해후유장해, 치아파절, 골절진단비, 간병인 …)도 잡힌다.
 CATEGORY_MAPPING = {
     "사망": [],
+    "후유장해": ["재활", "정형외과"],
     "입원": ["입원"],
+    "중환자실": ["입원", "응급"],
     "수술": ["수술"],
     "통원": ["외래/통원"],
     "외래": ["외래/통원"],
+    "처방조제": ["외래/통원"],
     "진단": ["건강검진"],
     "치과": ["치과"],
+    "치아": ["치과"],
+    "치주": ["치과"],
+    "임플란트": ["치과"],
     "정신": ["정신건강"],
+    "우울": ["정신건강"],
     "안과": ["안과"],
+    "백내장": ["안과"],
     "산부인과": ["산부인과"],
+    "임신": ["산부인과"],
+    "출산": ["산부인과"],
     "정형": ["정형외과"],
+    "골절": ["정형외과", "응급"],
+    "관절": ["정형외과"],
+    "척추": ["정형외과"],
     "피부": ["피부과"],
+    "화상": ["피부과", "응급"],
     "응급": ["응급"],
+    "상해": ["응급"],
+    "재해": ["응급"],
     "재활": ["재활"],
+    "간병": ["재활"],
+    "장기요양": ["재활"],
+    "치매": ["재활", "정신건강"],
 }
 
 
@@ -140,7 +162,8 @@ class GapDetector:
         result: dict[str, str] = {}
 
         for item in coverage.coverage_items:
-            cat_key = item.category
+            # match on category label AND 담보명 (손보 요약서는 category가 거칠고 담보명이 구체적)
+            cat_key = f"{item.category} {item.item_name}"
             for prefix, mapped_cats in CATEGORY_MAPPING.items():
                 if prefix in cat_key:
                     for mc in mapped_cats:

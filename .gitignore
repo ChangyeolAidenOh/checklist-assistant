@@ -6,3 +6,8 @@ data/nhis_stats/*.csv
 data/product_summaries/*.pdf
 .chroma_db/
 .DS_Store!data/nhis_stats/real_lookup_table.csv
+data/archive_life/
+*.zip
+.idea/
+**/.DS_Store
+docs/_private/

@@ -23,11 +23,11 @@ from core_pipeline.detector.gap_detector import GapDetector
 
 
 def make_health_insurance_coverage() -> ParsedCoverage:
-    """Simulates Node 1 output for 건강보험."""
+    """Simulates Node 1 output for KB 5.10.10 플러스 건강보험 (상해·질병 종합)."""
     return ParsedCoverage(
-        product_name="무배당 메트라이프 건강보험",
-        insurer="메트라이프생명보험",
-        product_type="건강보험",
+        product_name="KB 5.10.10 플러스 건강보험(세만기)(무배당)(26.09)",
+        insurer="KB손해보험",
+        product_type="종합건강보험",
         coverage_items=[
             CoverageItem(
                 category="사망", item_name="일반사망",
@@ -48,7 +48,7 @@ def make_health_insurance_coverage() -> ParsedCoverage:
         ],
         parse_confidence="high",
         raw_json={
-            "product_name": "무배당 메트라이프 건강보험",
+            "product_name": "KB 5.10.10 플러스 건강보험(세만기)(무배당)(26.09)",
             "coverage_items": [
                 {"category": "사망", "item_name": "일반사망",
                  "plain_description": "사망 시 지급", "benefit_amount": "1억원",
@@ -88,7 +88,7 @@ def make_office_worker_interest() -> InterestVector:
 
 def test_gap_detection():
     """Core test: 건강보험 has 입원/수술 but no 치과/정신건강/통원."""
-    print("=== Test 1: Gap detection (건강보험 vs 30대 사무직) ===")
+    print("=== Test 1: Gap detection (KB 5.10.10 건강보험 vs 30대 사무직) ===")
 
     detector = GapDetector()
     coverage = make_health_insurance_coverage()
@@ -122,7 +122,7 @@ def test_gap_detection():
     assert hospitalization is not None
     assert hospitalization.status == "covered", f"입원 should be covered, got {hospitalization.status}"
 
-    # 치과 should NOT be covered (건강보험 doesn't have it)
+    # 치과 should NOT be covered (this sample has no 치아 담보)
     dental = next(
         (i for i in gap.check_items if i.category == "치과"), None
     )

@@ -23,7 +23,10 @@ from dataclasses import dataclass
 import chromadb
 from chromadb.config import Settings
 
-from config import CHROMA_PERSIST_DIR, CHROMA_COLLECTION, RAG_SIMILARITY_THRESHOLD, RAG_TOP_K
+from config import (
+    CHROMA_PERSIST_DIR, CHROMA_COLLECTION, RAG_SIMILARITY_THRESHOLD, RAG_TOP_K,
+    RAG_EMBEDDING_MODEL, RAG_MAX_ELIGIBILITY_CHARS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,17 +43,55 @@ class RAGResult:
 class CoverageRAG:
     """RAG interface for insurance coverage documents."""
 
-    def __init__(self, persist_dir: str | None = None):
+    def __init__(self, persist_dir: str | None = None, embedding_model: str | None = None):
         self.persist_dir = persist_dir or CHROMA_PERSIST_DIR
+        self.embedding_model = embedding_model or RAG_EMBEDDING_MODEL
         self.client = chromadb.PersistentClient(path=self.persist_dir)
-        self.collection = self.client.get_or_create_collection(
-            name=CHROMA_COLLECTION,
-            metadata={"hnsw:space": "cosine"},
-        )
+        self.embedding_fn = self._build_embedding_fn()
+        self.collection = self._get_collection()
         logger.info(
-            "ChromaDB initialized: %s (%d documents)",
-            self.persist_dir, self.collection.count(),
+            "ChromaDB initialized: %s (%d documents, embedding=%s)",
+            self.persist_dir, self.collection.count(), self.embedding_model,
         )
+
+    def _build_embedding_fn(self):
+        """Multilingual sentence-transformer; falls back to Chroma default if unavailable."""
+        try:
+            from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+            return SentenceTransformerEmbeddingFunction(model_name=self.embedding_model)
+        except Exception as e:  # sentence-transformers not installed, model download failed, ...
+            logger.warning(
+                "Falling back to Chroma default embedding (English-only): %s. "
+                "pip install sentence-transformers for Korean retrieval.", e,
+            )
+            self.embedding_model = "all-MiniLM-L6-v2 (chroma default)"
+            return None
+
+    def _get_collection(self):
+        kwargs = {"name": CHROMA_COLLECTION, "metadata": {"hnsw:space": "cosine"}}
+        if self.embedding_fn is not None:
+            kwargs["embedding_function"] = self.embedding_fn
+        try:
+            return self.client.get_or_create_collection(**kwargs)
+        except ValueError as e:
+            if "mbedding function" not in str(e):
+                raise
+            # Collection was persisted with a different embedding model. Vectors from
+            # another model are useless, so drop and recreate (re-ingest afterwards).
+            logger.warning(
+                "Embedding model changed (%s). Recreating collection %r — run setup_rag.py --force.",
+                e, CHROMA_COLLECTION,
+            )
+            self.client.delete_collection(CHROMA_COLLECTION)
+            return self.client.get_or_create_collection(**kwargs)
+
+    def list_sources(self) -> list[str]:
+        """Distinct source filenames in the collection."""
+        count = self.collection.count()
+        if count == 0:
+            return []
+        got = self.collection.get(limit=count, include=["metadatas"])
+        return sorted({m["source"] for m in (got.get("metadatas") or []) if m and "source" in m})
 
     def ingest_directory(self, pdf_dir: str | Path, force: bool = False) -> dict:
         """Ingest all PDFs from a directory.
@@ -108,6 +149,7 @@ class CoverageRAG:
         top_k: int | None = None,
         product_filter: str | None = None,
         section_filter: str | None = None,
+        min_score: float | None = None,
     ) -> list[RAGResult]:
         """Search for relevant document chunks.
 
@@ -116,16 +158,27 @@ class CoverageRAG:
             top_k: Number of results (default from config)
             product_filter: Filter by product name (partial match)
             section_filter: Filter by section (보장내용, 면책사항, etc.)
+            min_score: Similarity cutoff. Defaults to RAG_SIMILARITY_THRESHOLD for
+                unfiltered search; when product/section filters are given the
+                filter already scopes relevance, so the default becomes 0.0.
 
         Returns:
             List of RAGResult sorted by relevance
         """
         top_k = top_k or RAG_TOP_K
+        if min_score is None:
+            min_score = 0.0 if (product_filter or section_filter) else RAG_SIMILARITY_THRESHOLD
 
         where_filter = None
         where_conditions = []
         if product_filter:
-            where_conditions.append({"source": {"$contains": product_filter}})
+            # Chroma metadata filters have no substring operator -> resolve to exact names
+            pf = unicodedata.normalize("NFC", product_filter).replace(" ", "")
+            matched = [src for src in self.list_sources() if pf in src.replace(" ", "")]
+            if not matched:
+                logger.info("product_filter %r matched no sources", product_filter)
+                return []
+            where_conditions.append({"source": {"$in": matched}})
         if section_filter:
             where_conditions.append({"section": section_filter})
 
@@ -155,7 +208,7 @@ class CoverageRAG:
             # Convert cosine distance to similarity (1 - distance)
             similarity = 1.0 - distance
 
-            if similarity < RAG_SIMILARITY_THRESHOLD:
+            if similarity < min_score:
                 continue
 
             rag_results.append(RAGResult(
@@ -188,24 +241,16 @@ class CoverageRAG:
 
     def get_stats(self) -> dict:
         """Get collection statistics."""
-        count = self.collection.count()
-        # Sample to get unique sources
-        if count > 0:
-            sample = self.collection.get(limit=min(count, 1000))
-            sources = set()
-            for meta in (sample.get("metadatas") or []):
-                if meta and "source" in meta:
-                    sources.add(meta["source"])
-            return {"total_chunks": count, "unique_sources": len(sources)}
-        return {"total_chunks": 0, "unique_sources": 0}
+        return {
+            "total_chunks": self.collection.count(),
+            "unique_sources": len(self.list_sources()),
+            "embedding_model": self.embedding_model,
+        }
 
     def clear(self) -> None:
         """Clear all documents from the collection."""
         self.client.delete_collection(CHROMA_COLLECTION)
-        self.collection = self.client.get_or_create_collection(
-            name=CHROMA_COLLECTION,
-            metadata={"hnsw:space": "cosine"},
-        )
+        self.collection = self._get_collection()
         logger.info("Collection cleared")
 
     def _extract_and_chunk(self, pdf_path: Path) -> list[dict]:
@@ -225,6 +270,9 @@ class CoverageRAG:
         for section_name, text in section_map.items():
             if not text or len(text) < 20:
                 continue
+            if section_name == "가입자격" and len(text) > RAG_MAX_ELIGIBILITY_CHARS:
+                # 대형 장기보험은 담보별 가입나이 표가 수십만 자 — 앞부분(가입 조건 요지)만 색인
+                text = text[:RAG_MAX_ELIGIBILITY_CHARS]
 
             section_chunks = self._split_text(
                 text,
