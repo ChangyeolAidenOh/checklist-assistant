@@ -26,9 +26,16 @@ def render():
                 total_categories=ga_data["total_categories"],
             )
 
-            product_name = st.session_state.get("parsed_coverage", {}).get("product_name", "")
+            parsed = st.session_state.get("parsed_coverage", {})
+            product_name = parsed.get("product_name", "")
             generator = ChecklistGenerator()
-            checklist = generator.generate(gap, product_name)
+            checklist = generator.generate(
+                gap,
+                product_name,
+                coverage_items=parsed.get("coverage_items", []),
+                exclusions=parsed.get("exclusions", []),
+                user_profile=st.session_state.get("user_profile"),
+            )
             if checklist.error:
                 st.error(f"LLM 생성 호출 실패, 규칙 기반 체크리스트로 대체 — {checklist.error}")
 

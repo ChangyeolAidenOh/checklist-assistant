@@ -205,8 +205,15 @@ class CoverageChecklistPipeline:
             total_categories=ga_data["total_categories"],
         )
 
-        product_name = state.get("parsed_coverage", {}).get("product_name", "")
-        checklist = self.generator.generate(gap, product_name)
+        parsed = state.get("parsed_coverage", {})
+        product_name = parsed.get("product_name", "")
+        checklist = self.generator.generate(
+            gap,
+            product_name,
+            coverage_items=parsed.get("coverage_items", []),
+            exclusions=parsed.get("exclusions", []),
+            user_profile=state.get("user_profile"),
+        )
 
         elapsed = time.time() - start
         state["checklist"] = checklist.raw_json

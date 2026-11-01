@@ -60,6 +60,20 @@ CATEGORY_MAPPING = {
 }
 
 
+# 진료과 성격의 관심 영역 — 실손 포괄 담보로 "일반 진료비"는 보장될 수 있는 영역
+DEPARTMENT_CATEGORIES = {"치과", "정신건강", "안과", "산부인과", "정형외과", "피부과"}
+
+# 실손에서 흔히 문제가 되는 진료과별 확인 포인트
+DEPARTMENT_CAVEATS = {
+    "치과": "치과 치료(보철·임플란트·교정은 실손 보장 제외가 일반적)",
+    "정신건강": "정신건강의학과 비급여 상담·치료",
+    "안과": "시력교정술(라식·라섹)과 비급여 검사",
+    "산부인과": "임신·출산 관련 진료와 비급여 검사",
+    "정형외과": "도수치료·체외충격파 등 비급여 물리치료 한도",
+    "피부과": "미용 목적 시술(보장 제외)과 질병 치료의 구분",
+}
+
+
 @dataclass
 class CheckItem:
     category: str
@@ -102,6 +116,10 @@ class GapDetector:
         # Build coverage lookup: which categories are covered
         covered_categories = self._extract_covered_categories(coverage)
 
+        # 실손의료비(또는 입원+통원 포괄 담보)는 진료과를 가리지 않고 보장한다.
+        # 이 경우 진료과 카테고리는 "미포함"이 아니라 "포괄 보장 — 비급여/특정치료 범위 확인"(partial)이다.
+        general_medical = self._is_general_medical(coverage, covered_categories)
+
         items = []
         covered_count = 0
 
@@ -111,6 +129,9 @@ class GapDetector:
 
             status = covered_categories.get(cat, "not_covered")
             detail = covered_categories.get(f"{cat}_detail", "")
+            if status == "not_covered" and general_medical and cat in DEPARTMENT_CATEGORIES:
+                status = "partial"
+                detail = detail or "실손 입원·통원 담보로 일반 진료비는 보장 대상 (전용 담보 없음)"
 
             # Priority = interest score * coverage gap weight
             gap_weight = {"covered": 0.2, "partial": 0.6, "not_covered": 1.0, "unknown": 0.8}
@@ -118,16 +139,22 @@ class GapDetector:
 
             if status == "covered":
                 covered_count += 1
-                note = f"{cat} 보장이 포함되어 있습니다. 보장 한도와 조건을 확인해보세요."
+                note = f"{cat} 관련 담보가 요약서에 있습니다. 보장 한도·자기부담·면책 조건을 확인해보세요."
             elif status == "partial":
-                note = (
-                    f"{cat} 관련 보장이 일부 포함되어 있으나, "
-                    "보장 범위가 충분한지 설계사와 상의해보세요."
-                )
+                if general_medical and cat in DEPARTMENT_CATEGORIES:
+                    note = (
+                        f"{cat} 진료비는 실손 입원·통원 담보로 보장될 수 있으나 전용 담보는 없습니다. "
+                        f"{DEPARTMENT_CAVEATS.get(cat, '비급여 항목과 보장 제외 치료')}에 대해 실손 처리 기준을 설계사에게 확인해보세요."
+                    )
+                else:
+                    note = (
+                        f"{cat} 관련 담보가 일부 있습니다. "
+                        "보장 범위가 본인 상황에 충분한지 설계사와 상의해보세요."
+                    )
             elif status == "not_covered":
                 note = (
-                    f"{cat} 관련 보장이 현재 포함되어 있지 않습니다. "
-                    "필요 여부를 설계사와 상의해보세요."
+                    f"이 요약서에서 {cat} 관련 담보를 찾지 못했습니다. "
+                    "보장 여부와 필요성을 설계사에게 확인해보세요."
                 )
             else:
                 note = (
@@ -156,6 +183,14 @@ class GapDetector:
             check_needed_count=check_needed,
             total_categories=len(items),
         )
+
+    @staticmethod
+    def _is_general_medical(coverage: ParsedCoverage, covered: dict) -> bool:
+        """True for 실손의료비형 상품: 진료과 무관 입원+통원 포괄 보장."""
+        text = f"{coverage.product_name} {coverage.product_type}"
+        if "실손" in text:
+            return True
+        return covered.get("입원") == "covered" and covered.get("외래/통원") == "covered"
 
     def _extract_covered_categories(self, coverage: ParsedCoverage) -> dict:
         """Extract which interest categories are covered."""
