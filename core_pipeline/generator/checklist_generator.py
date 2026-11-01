@@ -68,6 +68,7 @@ class ConsultationChecklist:
     informational: list[ChecklistItem] = field(default_factory=list)
     disclaimer: str = ""
     raw_json: dict = field(default_factory=dict)
+    error: str = ""
 
 
 class ChecklistGenerator:
@@ -109,7 +110,9 @@ class ChecklistGenerator:
             )
         except Exception as e:
             logger.error("Checklist generation failed: %s", e)
-            return self._fallback_checklist(gap_analysis)
+            cl = self._fallback_checklist(gap_analysis)
+            cl.error = f"{type(e).__name__}: {e}"
+            return cl
 
         # Apply guardrail filter
         result = self.guardrail.filter_output(result)

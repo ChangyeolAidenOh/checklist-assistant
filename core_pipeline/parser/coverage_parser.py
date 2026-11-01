@@ -85,6 +85,7 @@ class ParsedCoverage:
     parse_confidence: str = "low"
     unparsed_sections: list[str] = field(default_factory=list)
     raw_json: dict = field(default_factory=dict)
+    error: str = ""
 
 
 class CoverageParser:
@@ -122,6 +123,7 @@ class CoverageParser:
                 product_type="",
                 parse_confidence="low",
                 unparsed_sections=["전체 문서 - 자동 분석 범위 밖"],
+                error=f"{type(e).__name__}: {e}",
             )
 
         return self._to_parsed_coverage(result)

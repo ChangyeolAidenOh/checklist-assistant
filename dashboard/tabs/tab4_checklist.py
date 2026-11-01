@@ -29,6 +29,8 @@ def render():
             product_name = st.session_state.get("parsed_coverage", {}).get("product_name", "")
             generator = ChecklistGenerator()
             checklist = generator.generate(gap, product_name)
+            if checklist.error:
+                st.error(f"LLM 생성 호출 실패, 규칙 기반 체크리스트로 대체 — {checklist.error}")
 
             st.session_state["checklist"] = {
                 "title": checklist.title,

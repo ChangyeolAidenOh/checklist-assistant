@@ -134,6 +134,8 @@ def render():
             result = parser.parse(doc_text)
             st.session_state["parsed_coverage"] = result.raw_json
             st.session_state["parse_confidence"] = result.parse_confidence
+            if result.error:
+                st.error(f"LLM 파싱 호출 실패 — {result.error}")
 
     # Display parsed results
     if "parsed_coverage" in st.session_state:
