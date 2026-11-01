@@ -23,12 +23,20 @@ def render():
     with col2:
         family_size = st.number_input("가족 수", min_value=1, max_value=10, value=1)
         has_children = st.checkbox("자녀 유무")
+        picked = st.multiselect(
+            "생활·건강 관심사 (해당 항목 선택)",
+            [
+                "운동·스포츠", "허리·목·관절", "눈·시력", "치아·잇몸", "스트레스·수면",
+                "피부·탈모", "식단·체중 관리", "음주·흡연", "혈압·혈당·콜레스테롤",
+                "소화·위장", "비염·알레르기", "임신·출산", "육아·자녀", "부모님 간병", "암 가족력",
+            ],
+        )
         health_concerns_text = st.text_input(
-            "건강 관심사 (쉼표로 구분)",
-            placeholder="예: 허리, 눈, 스트레스",
+            "그 밖의 관심사 (쉼표로 구분, 자유 입력)",
+            placeholder="예: 러닝, 라식, 당뇨, 편두통",
         )
 
-    health_concerns = [c.strip() for c in health_concerns_text.split(",") if c.strip()]
+    health_concerns = picked + [c.strip() for c in health_concerns_text.split(",") if c.strip()]
 
     # Store profile
     profile_data = {
@@ -112,6 +120,13 @@ def render():
                     if occ_effect:
                         st.write(f"- 직업 영향: {occ_effect}")
 
-                boosts = shap.get("health_concern_boosts", [])
-                if boosts:
+                boosts = shap.get("health_concern_boosts", {})
+                unrecognized = shap.get("health_concern_unrecognized", [])
+                if isinstance(boosts, dict) and boosts:
+                    st.write("- 관심사 → 관심 영역 반영 (+0.15):")
+                    for concern, cats in boosts.items():
+                        st.write(f"    - {concern} → {', '.join(cats)}")
+                elif isinstance(boosts, list) and boosts:
                     st.write(f"- 건강 관심사 반영: {', '.join(boosts)}")
+                if unrecognized:
+                    st.write(f"- 인식되지 않은 입력: {', '.join(unrecognized)} — 신체 부위, 증상, 생활습관(운동·식단·수면 등) 단어로 적어주세요.")

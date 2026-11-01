@@ -37,6 +37,50 @@ INTEREST_CATEGORIES = [
 ]
 
 
+# 생활/건강 관심사 키워드 → 관심 영역(복수 가능). 부분 일치로 매칭한다.
+# 사용자가 적는 말은 진료과목이 아니라 생활 언어이므로 넓게 잡는다.
+CONCERN_KEYWORDS: dict[str, list[str]] = {
+    # 근골격 / 운동
+    "허리": ["정형외과"], "목": ["정형외과"], "어깨": ["정형외과"], "무릎": ["정형외과"],
+    "관절": ["정형외과"], "디스크": ["정형외과", "수술"], "척추": ["정형외과"],
+    "운동": ["정형외과", "응급"], "헬스": ["정형외과"], "러닝": ["정형외과"], "달리기": ["정형외과"],
+    "등산": ["정형외과", "응급"], "축구": ["정형외과", "응급"], "농구": ["정형외과", "응급"],
+    "자전거": ["정형외과", "응급"], "골프": ["정형외과"], "테니스": ["정형외과"], "스키": ["정형외과", "응급"],
+    "골절": ["정형외과", "응급"], "부상": ["정형외과", "응급"],
+    # 눈
+    "눈": ["안과"], "시력": ["안과"], "안경": ["안과"], "렌즈": ["안과"], "라식": ["안과"], "라섹": ["안과"],
+    "노안": ["안과"], "백내장": ["안과"], "녹내장": ["안과"],
+    # 치아
+    "치아": ["치과"], "이빨": ["치과"], "잇몸": ["치과"], "충치": ["치과"], "임플란트": ["치과"],
+    "교정": ["치과"], "스케일링": ["치과"], "사랑니": ["치과"],
+    # 정신건강 / 수면
+    "스트레스": ["정신건강"], "우울": ["정신건강"], "불안": ["정신건강"], "번아웃": ["정신건강"],
+    "수면": ["정신건강"], "불면": ["정신건강"], "공황": ["정신건강"], "상담": ["정신건강"], "멘탈": ["정신건강"],
+    # 피부
+    "피부": ["피부과"], "여드름": ["피부과"], "아토피": ["피부과"], "탈모": ["피부과"], "두피": ["피부과"],
+    # 여성 / 임신
+    "임신": ["산부인과"], "출산": ["산부인과"], "난임": ["산부인과"], "생리": ["산부인과"], "자궁": ["산부인과"],
+    "유방": ["산부인과", "건강검진"],
+    # 식습관 / 대사 / 검진
+    "식단": ["건강검진"], "식습관": ["건강검진"], "그로서리": ["건강검진"], "장보기": ["건강검진"],
+    "다이어트": ["건강검진"], "체중": ["건강검진"], "비만": ["건강검진", "입원"],
+    "당뇨": ["건강검진", "입원"], "혈당": ["건강검진"], "혈압": ["건강검진", "입원"],
+    "고혈압": ["건강검진", "입원"], "콜레스테롤": ["건강검진"], "지방간": ["건강검진"],
+    "건강검진": ["건강검진"], "검진": ["건강검진"], "음주": ["건강검진", "입원"], "술": ["건강검진"],
+    "흡연": ["건강검진", "입원"], "담배": ["건강검진", "입원"],
+    # 소화기 / 호흡기 / 감기 (외래)
+    "소화": ["외래/통원"], "위": ["외래/통원", "건강검진"], "장": ["외래/통원"], "역류": ["외래/통원"],
+    "감기": ["외래/통원"], "비염": ["외래/통원"], "알레르기": ["외래/통원"], "천식": ["외래/통원", "입원"],
+    "두통": ["외래/통원"], "편두통": ["외래/통원"], "빈혈": ["외래/통원", "건강검진"],
+    # 가족 / 돌봄
+    "육아": ["입원", "응급"], "자녀": ["입원", "응급"], "아이": ["입원", "응급"],
+    "부모": ["입원", "재활"], "간병": ["재활", "입원"], "치매": ["재활", "정신건강"],
+    # 중증
+    "암": ["건강검진", "입원", "수술"], "가족력": ["건강검진"], "심장": ["건강검진", "입원"],
+    "뇌": ["건강검진", "입원"], "수술": ["수술", "입원"], "입원": ["입원"],
+}
+
+
 @dataclass
 class UserProfile:
     age: int
@@ -122,14 +166,7 @@ class HealthProfiler:
             "기타":    {},
         }
 
-        self.concern_mapping = {
-            "허리": "정형외과", "목": "정형외과", "관절": "정형외과",
-            "눈": "안과", "시력": "안과",
-            "치아": "치과", "잇몸": "치과",
-            "스트레스": "정신건강", "우울": "정신건강", "불안": "정신건강", "수면": "정신건강",
-            "피부": "피부과", "여드름": "피부과",
-            "임신": "산부인과", "출산": "산부인과",
-        }
+        self.concern_mapping = CONCERN_KEYWORDS
 
     def _load_real_baseline(self, csv_path: Path) -> dict:
         """Load baseline from real HIRA lookup table CSV."""
@@ -223,6 +260,7 @@ class HealthProfiler:
 
         # Apply health concern boosts on top
         scores = self._apply_concern_boosts(scores, profile)
+        recognized, unrecognized = self.match_concerns(profile.health_concerns)
 
         score_list = [scores.get(cat, 0.0) for cat in INTEREST_CATEGORIES]
         sorted_indices = np.argsort(score_list)[::-1]
@@ -235,10 +273,8 @@ class HealthProfiler:
             shap_explanations={
                 "model": self.model_source,
                 "feature_contributions": shap_dict,
-                "health_concern_boosts": [
-                    c for c in profile.health_concerns
-                    if any(k in c for k in self.concern_mapping)
-                ],
+                "health_concern_boosts": recognized,
+                "health_concern_unrecognized": unrecognized,
             },
             model_used="xgboost",
         )
@@ -259,6 +295,7 @@ class HealthProfiler:
             base_scores["입원"] = min(base_scores["입원"] + 0.10, 1.0)
 
         base_scores = self._apply_concern_boosts(base_scores, profile)
+        recognized, unrecognized = self.match_concerns(profile.health_concerns)
 
         categories = INTEREST_CATEGORIES
         scores = [round(base_scores.get(cat, 0.0), 3) for cat in categories]
@@ -274,18 +311,36 @@ class HealthProfiler:
                 "model": "rule-based",
                 "age_group": age_group,
                 "occupation_effect": modifiers,
-                "health_concern_boosts": [
-                    c for c in profile.health_concerns
-                    if any(k in c for k in self.concern_mapping)
-                ],
+                "health_concern_boosts": recognized,
+                "health_concern_unrecognized": unrecognized,
             },
             model_used="rule-based",
         )
 
+    def match_concerns(self, concerns: list[str]) -> tuple[dict[str, list[str]], list[str]]:
+        """Return ({concern: [categories]}, [unrecognized concerns])."""
+        recognized: dict[str, list[str]] = {}
+        unknown: list[str] = []
+        for concern in concerns:
+            c = concern.strip()
+            if not c:
+                continue
+            cats: list[str] = []
+            for keyword, mapped in self.concern_mapping.items():
+                if keyword in c:
+                    cats.extend(mapped)
+            cats = list(dict.fromkeys(cats))  # dedupe, keep order
+            if cats:
+                recognized[c] = cats
+            else:
+                unknown.append(c)
+        return recognized, unknown
+
     def _apply_concern_boosts(self, scores: dict, profile: UserProfile) -> dict:
-        """Apply health concern keyword boosts."""
-        for concern in profile.health_concerns:
-            for keyword, cat in self.concern_mapping.items():
-                if keyword in concern and cat in scores:
+        """Apply health concern keyword boosts (+0.15 per matched category, capped at 1.0)."""
+        recognized, _ = self.match_concerns(profile.health_concerns)
+        for cats in recognized.values():
+            for cat in cats:
+                if cat in scores:
                     scores[cat] = min(scores[cat] + 0.15, 1.0)
         return scores
