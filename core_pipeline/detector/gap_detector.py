@@ -83,6 +83,8 @@ class CheckItem:
     consultation_note: str         # what to ask the planner
     interest_score: float          # from profiler
     coverage_detail: str = ""      # if covered, what's the detail
+    basis: str = ""                # "관심사" | "연령·성별 의료이용 통계" — why this category is on the list
+    basis_concerns: list = field(default_factory=list)  # user inputs that boosted this category
 
 
 @dataclass
@@ -120,12 +122,26 @@ class GapDetector:
         # 이 경우 진료과 카테고리는 "미포함"이 아니라 "포괄 보장 — 비급여/특정치료 범위 확인"(partial)이다.
         general_medical = self._is_general_medical(coverage, covered_categories)
 
+        # Why is each category on the list? Invert {concern: [cats]} -> {cat: [concerns]}
+        boosts = (interest.shap_explanations or {}).get("health_concern_boosts", {})
+        cat_to_concerns: dict[str, list[str]] = {}
+        if isinstance(boosts, dict):
+            for concern, cats in boosts.items():
+                for c in cats:
+                    cat_to_concerns.setdefault(c, []).append(concern)
+        age_group = (interest.shap_explanations or {}).get("age_group", "")
+
         items = []
         covered_count = 0
 
         for cat, score in zip(interest.categories, interest.scores):
             if score < self.priority_threshold:
                 continue  # low interest, skip
+
+            basis_concerns = cat_to_concerns.get(cat, [])
+            basis = "관심사" if basis_concerns else (
+                f"연령·성별 의료이용 통계{f' ({age_group})' if age_group else ''}"
+            )
 
             status = covered_categories.get(cat, "not_covered")
             detail = covered_categories.get(f"{cat}_detail", "")
@@ -170,6 +186,8 @@ class GapDetector:
                 consultation_note=note,
                 interest_score=score,
                 coverage_detail=detail,
+                basis=basis,
+                basis_concerns=basis_concerns,
             ))
 
         # Sort by priority (descending)

@@ -110,6 +110,7 @@ class ChecklistGenerator:
             "위 정보를 바탕으로 상담 전 체크리스트를 생성하세요. "
             "각 항목의 description에는 이 상품이 실제로 보장하는 담보(위 [상품이 보장하는 담보])와 "
             "고객의 생활·건강 관심사를 연결해 왜 확인이 필요한지 1~2문장으로 쓰고, "
+            "'선정 근거'가 통계인 항목은 '직접 언급하진 않으셨지만 같은 연령대에서 이용이 많은 영역'임을 한 구절로 밝히고, "
             "question_for_planner는 해당 담보명·한도·자기부담·면책 같은 구체적 항목을 짚는 질문으로 쓰세요. "
             "'이 영역은 상담 시 확인이 필요할 수 있습니다' 같은 일반 문장만 반복하지 마세요."
         )
@@ -165,9 +166,16 @@ class ChecklistGenerator:
         """Format gap analysis items for LLM prompt."""
         lines = []
         for item in gap.check_items:
+            basis = getattr(item, "basis", "")
+            concerns = getattr(item, "basis_concerns", []) or []
+            basis_txt = (
+                f"고객이 직접 입력한 관심사({', '.join(concerns)})에서 도출"
+                if basis == "관심사" else "같은 연령·성별 의료이용 통계에서 도출 (고객이 직접 언급하지 않음)"
+            )
             lines.append(
                 f"- {item.category} (우선순위: {item.priority_score}/10, "
                 f"상태: {item.status}, 관심도: {item.interest_score:.2f})\n"
+                f"  선정 근거: {basis_txt}\n"
                 f"  설명: {item.plain_description}\n"
                 f"  참고: {item.consultation_note}"
             )

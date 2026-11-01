@@ -135,6 +135,7 @@ class CoverageChecklistPipeline:
 
         elapsed = time.time() - start
         state["interest_vector"] = interest.to_dict()
+        state["interest_explanations"] = interest.shap_explanations
         state["trace"] = state.get("trace", []) + [
             {
                 "node": "Health Profiler",
@@ -159,6 +160,7 @@ class CoverageChecklistPipeline:
             categories=INTEREST_CATEGORIES,
             scores=[iv_data.get(cat, 0.0) for cat in INTEREST_CATEGORIES],
             top_interests=sorted(iv_data, key=iv_data.get, reverse=True)[:3],
+            shap_explanations=state.get("interest_explanations", {}),
         )
 
         gap = self.detector.analyze(parsed, interest)
@@ -174,6 +176,8 @@ class CoverageChecklistPipeline:
                     "consultation_note": item.consultation_note,
                     "interest_score": item.interest_score,
                     "coverage_detail": item.coverage_detail,
+                    "basis": item.basis,
+                    "basis_concerns": item.basis_concerns,
                 }
                 for item in gap.check_items
             ],

@@ -37,6 +37,7 @@ def render():
                 categories=INTEREST_CATEGORIES,
                 scores=[iv_data.get(cat, 0.0) for cat in INTEREST_CATEGORIES],
                 top_interests=sorted(iv_data, key=iv_data.get, reverse=True)[:3],
+                shap_explanations=st.session_state.get("shap_explanations", {}),
             )
 
             detector = GapDetector()
@@ -52,6 +53,8 @@ def render():
                         "consultation_note": item.consultation_note,
                         "interest_score": item.interest_score,
                         "coverage_detail": item.coverage_detail,
+                        "basis": item.basis,
+                        "basis_concerns": item.basis_concerns,
                     }
                     for item in gap.check_items
                 ],
@@ -74,10 +77,21 @@ def render():
         with col3:
             st.metric("확인 필요", f"{ga['check_needed_count']}개")
 
+        n_concern = sum(1 for i in ga["check_items"] if i.get("basis") == "관심사")
+        n_stat = len(ga["check_items"]) - n_concern
+        st.caption(
+            f"분석 영역은 두 근거로 선정됩니다 — ★ 입력한 관심사에서 도출 {n_concern}개, "
+            f"그 외 같은 연령·성별의 건강보험 의료이용 통계(건보심평원)에서 도출 {n_stat}개. "
+            "통계 기반 항목은 본인이 떠올리지 못한 영역을 또래 데이터로 짚어주는 용도입니다."
+        )
+
         # Priority bar chart
         items = ga["check_items"]
         if items:
-            categories = [i["category"] for i in items]
+            categories = [
+                f"★ {i['category']}" if i.get("basis") == "관심사" else i["category"]
+                for i in items
+            ]
             priorities = [i["priority_score"] for i in items]
             statuses = [i["status"] for i in items]
 
@@ -116,12 +130,17 @@ def render():
             for item in items:
                 status_icon = {"covered": "✅", "partial": "⚠️", "not_covered": "❌", "unknown": "❓"}
                 icon = status_icon.get(item["status"], "❓")
+                star = "★ " if item.get("basis") == "관심사" else ""
                 with st.expander(
-                    f"{icon} {item['category']} — 우선순위 {item['priority_score']}/10"
+                    f"{icon} {star}{item['category']} — 우선순위 {item['priority_score']}/10"
                 ):
                     st.write(f"**설명:** {item['plain_description']}")
                     st.write(f"**상태:** {item['status']}")
                     st.write(f"**관심도:** {item['interest_score']:.2f}")
+                    if item.get("basis") == "관심사":
+                        st.write(f"**선정 근거:** ★ 입력한 관심사 — {', '.join(item.get('basis_concerns', []))}")
+                    else:
+                        st.write(f"**선정 근거:** {item.get('basis', '연령·성별 의료이용 통계')} — 또래 의료이용 상위 영역")
                     if item["coverage_detail"]:
                         st.write(f"**보장 내용:** {item['coverage_detail']}")
                     st.info(item["consultation_note"])
