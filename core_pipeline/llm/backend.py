@@ -94,8 +94,17 @@ class AnthropicBackend(LLMBackend):
         if system:
             kwargs["system"] = system
 
-        response = self.client.messages.create(**kwargs)
-        return response.content[0].text
+        try:
+            response = self.client.messages.create(**kwargs)
+        except TypeError as e:
+            # Newer anthropic SDKs dropped `temperature` from Messages.create();
+            # retry without it so the same code runs on old and new SDK versions.
+            if "temperature" not in str(e):
+                raise
+            logger.warning("SDK rejected 'temperature'; retrying without it (%s)", e)
+            kwargs.pop("temperature", None)
+            response = self.client.messages.create(**kwargs)
+        return "".join(getattr(b, "text", "") for b in response.content)
 
     def generate_structured(
         self,
