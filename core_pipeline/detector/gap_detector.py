@@ -119,7 +119,7 @@ class GapDetector:
         covered_categories = self._extract_covered_categories(coverage)
 
         # 실손의료비(또는 입원+통원 포괄 담보)는 진료과를 가리지 않고 보장한다.
-        # 이 경우 진료과 카테고리는 "미포함"이 아니라 "포괄 보장 — 비급여/특정치료 범위 확인"(partial)이다.
+        # 이 경우 진료과 카테고리는 "포괄 보장 — 비급여/특정치료 범위 확인"(partial)으로 분류하고 "미포함"으로 두지 않는다.
         general_medical = self._is_general_medical(coverage, covered_categories)
 
         # Why is each category on the list? Invert {concern: [cats]} -> {cat: [concerns]}
@@ -215,7 +215,7 @@ class GapDetector:
         result: dict[str, str] = {}
 
         for item in coverage.coverage_items:
-            # match on category label AND 담보명 (손보 요약서는 category가 거칠고 담보명이 구체적)
+            # match on category label AND 담보명 (손해보험 요약서는 category가 거칠고 담보명이 구체적)
             cat_key = f"{item.category} {item.item_name}"
             for prefix, mapped_cats in CATEGORY_MAPPING.items():
                 if prefix in cat_key:
