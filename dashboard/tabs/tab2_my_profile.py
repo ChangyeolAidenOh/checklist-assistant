@@ -4,6 +4,7 @@ import streamlit as st
 import plotly.graph_objects as go
 
 from core_pipeline.profiler.health_profiler import HealthProfiler, UserProfile
+from dashboard.text import md
 
 
 def render():
@@ -123,10 +124,10 @@ def render():
                 boosts = shap.get("health_concern_boosts", {})
                 unrecognized = shap.get("health_concern_unrecognized", [])
                 if isinstance(boosts, dict) and boosts:
-                    st.write("- 관심사 → 관심 영역 반영 (+0.15):")
-                    for concern, cats in boosts.items():
-                        st.write(f"    - {concern} → {', '.join(cats)}")
+                    lines = ["- 관심사 → 관심 영역 반영 (+0.15):"]
+                    lines += [f"    - {md(concern)} → {', '.join(cats)}" for concern, cats in boosts.items()]
+                    st.markdown("\n".join(lines))
                 elif isinstance(boosts, list) and boosts:
-                    st.write(f"- 건강 관심사 반영: {', '.join(boosts)}")
+                    st.write(f"- 건강 관심사 반영: {md(', '.join(boosts))}")
                 if unrecognized:
-                    st.write(f"- 인식되지 않은 입력: {', '.join(unrecognized)} — 신체 부위, 증상, 생활습관(운동·식단·수면 등) 단어로 적어주세요.")
+                    st.write(f"- 인식되지 않은 입력: {md(', '.join(unrecognized))} — 신체 부위, 증상, 생활습관(운동·식단·수면 등) 단어로 적어주세요.")
