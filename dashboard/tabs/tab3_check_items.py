@@ -1,6 +1,8 @@
 """Tab 3: Check Items - Coverage vs interest area comparison + priority ranking."""
 
 import streamlit as st
+
+from dashboard.text import md
 import plotly.graph_objects as go
 
 from config import DISCLAIMER
@@ -134,7 +136,7 @@ def render():
                 with st.expander(
                     f"{icon} {star}{item['category']} — 우선순위 {item['priority_score']}/10"
                 ):
-                    st.write(f"**설명:** {item['plain_description']}")
+                    st.write(f"**설명:** {md(item['plain_description'])}")
                     status_label = {"covered": "보장 확인됨", "partial": "일부 보장", "not_covered": "보장 미확인", "unknown": "확인 불가"}
                     st.write(f"**상태:** {status_label.get(item['status'], item['status'])}")
                     st.write(f"**관심도:** {item['interest_score']:.2f}")
@@ -143,5 +145,5 @@ def render():
                     else:
                         st.write(f"**선정 근거:** {item.get('basis', '연령·성별 의료이용 통계')} — 또래 의료이용 상위 영역")
                     if item["coverage_detail"]:
-                        st.write(f"**보장 내용:** {item['coverage_detail']}")
-                    st.info(item["consultation_note"])
+                        st.write(f"**보장 내용:** {md(item['coverage_detail'])}")
+                    st.info(md(item["consultation_note"]))

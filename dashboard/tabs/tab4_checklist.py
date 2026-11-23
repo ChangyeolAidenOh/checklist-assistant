@@ -2,6 +2,8 @@
 
 import streamlit as st
 
+from dashboard.text import md
+
 from config import DISCLAIMER
 
 
@@ -65,34 +67,34 @@ def render():
         st.divider()
 
         st.markdown(f"### {cl.get('title', '상담 전 체크리스트')}")
-        st.write(cl.get("summary", ""))
+        st.write(md(cl.get("summary", "")))
 
         # High priority
         high = cl.get("high_priority", [])
         if high:
             st.markdown("#### 🔴 우선 확인 항목")
             for i, item in enumerate(high, 1):
-                st.markdown(f"**{i}. {item['item']}**")
-                st.write(item["description"])
-                st.success(f"💬 설계사에게 물어볼 질문: {item['question_for_planner']}")
+                st.markdown(f"**{i}. {md(item['item'])}**")
+                st.write(md(item["description"]))
+                st.success(f"💬 설계사에게 물어볼 질문: {md(item['question_for_planner'])}")
 
         # Medium priority
         medium = cl.get("medium_priority", [])
         if medium:
             st.markdown("#### 🟡 추가 확인 항목")
             for i, item in enumerate(medium, 1):
-                st.markdown(f"**{i}. {item['item']}**")
-                st.write(item["description"])
-                st.info(f"💬 설계사에게 물어볼 질문: {item['question_for_planner']}")
+                st.markdown(f"**{i}. {md(item['item'])}**")
+                st.write(md(item["description"]))
+                st.info(f"💬 설계사에게 물어볼 질문: {md(item['question_for_planner'])}")
 
         # Informational
         info = cl.get("informational", [])
         if info:
             st.markdown("#### 🔵 참고 사항")
             for i, item in enumerate(info, 1):
-                with st.expander(f"{i}. {item['item']}"):
-                    st.write(item["description"])
-                    st.write(f"💬 {item['question_for_planner']}")
+                with st.expander(f"{i}. {md(item['item'])}"):
+                    st.write(md(item["description"]))
+                    st.write(f"💬 {md(item['question_for_planner'])}")
 
         # Disclaimer
         st.divider()

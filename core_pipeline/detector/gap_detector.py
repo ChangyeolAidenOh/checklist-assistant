@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Mapping: coverage categories -> interest categories
 # Mapping: coverage category / item-name keywords -> interest categories.
+# "상해"/"재해" 단독 키는 두지 않는다: 상해사망·상해후유장해까지 응급 보장으로 잡혔기 때문.
 # Keys are matched as substrings against BOTH item.category and item.item_name,
 # so 손해보험 담보명(상해후유장해, 치아파절, 골절진단비, 간병인 …)도 잡힌다.
 CATEGORY_MAPPING = {
@@ -51,8 +52,6 @@ CATEGORY_MAPPING = {
     "피부": ["피부과"],
     "화상": ["피부과", "응급"],
     "응급": ["응급"],
-    "상해": ["응급"],
-    "재해": ["응급"],
     "재활": ["재활"],
     "간병": ["재활"],
     "장기요양": ["재활"],
@@ -152,6 +151,9 @@ class GapDetector:
             if status == "not_covered" and general_medical and cat in DEPARTMENT_CATEGORIES:
                 status = "partial"
                 detail = detail or "실손 입원·통원 담보로 일반 진료비는 보장 대상 (전용 담보 없음)"
+            elif status == "not_covered" and general_medical and cat == "응급":
+                status = "covered"
+                detail = "실손 입원·통원 담보로 응급실 진료비 보장 대상"
 
             # Priority = interest score * coverage gap weight
             gap_weight = {"covered": 0.2, "partial": 0.6, "not_covered": 1.0, "unknown": 0.8}
@@ -229,6 +231,8 @@ class GapDetector:
         for item in coverage.coverage_items:
             # match on category label AND 담보명 (손해보험 요약서는 category가 거칠고 담보명이 구체적)
             cat_key = f"{item.category} {item.item_name}"
+            if "사망" in cat_key:
+                continue  # 사망보험금은 진료비 보장이 아님 ("일반상해사망"이 "상해" → 응급으로 잡히던 문제)
             narrow = any(m in item.item_name for m in NARROW_MARKERS)
             for prefix, mapped_cats in CATEGORY_MAPPING.items():
                 if prefix not in cat_key:

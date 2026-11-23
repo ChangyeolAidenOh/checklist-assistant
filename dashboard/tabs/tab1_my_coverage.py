@@ -3,6 +3,8 @@
 import json
 import streamlit as st
 
+from dashboard.text import md
+
 from config import DISCLAIMER
 
 
@@ -168,14 +170,14 @@ def render():
             st.subheader(f"보장 항목 ({len(items)}개)")
             for item in items:
                 with st.expander(
-                    f"**{item.get('category', '')}** — {item.get('item_name', '')}"
+                    f"**{md(item.get('category', ''))}** — {md(item.get('item_name', ''))}"
                 ):
-                    st.write(f"**일상 언어 설명:** {item.get('plain_description', '')}")
-                    st.write(f"**보장 금액:** {item.get('benefit_amount', '')}")
+                    st.write(f"**일상 언어 설명:** {md(item.get('plain_description', ''))}")
+                    st.write(f"**보장 금액:** {md(item.get('benefit_amount', ''))}")
                     if item.get("conditions"):
-                        st.write(f"**조건:** {item['conditions']}")
+                        st.write(f"**조건:** {md(item['conditions'])}")
                     if item.get("waiting_period"):
-                        st.write(f"**대기기간:** {item['waiting_period']}")
+                        st.write(f"**대기기간:** {md(item['waiting_period'])}")
                     st.caption(f"출처: {item.get('source_reference', '')}")
 
         # Exclusions
@@ -183,7 +185,7 @@ def render():
         if exclusions:
             st.subheader(f"면책 사항 ({len(exclusions)}개)")
             for exc in exclusions:
-                st.warning(f"**{exc.get('item', '')}**: {exc.get('plain_description', '')}")
+                st.warning(f"**{md(exc.get('item', ''))}**: {md(exc.get('plain_description', ''))}")
 
         # Raw JSON (collapsible)
         with st.expander("원본 JSON 데이터"):
