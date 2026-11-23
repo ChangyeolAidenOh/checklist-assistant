@@ -135,7 +135,8 @@ def render():
                     f"{icon} {star}{item['category']} — 우선순위 {item['priority_score']}/10"
                 ):
                     st.write(f"**설명:** {item['plain_description']}")
-                    st.write(f"**상태:** {item['status']}")
+                    status_label = {"covered": "보장 확인됨", "partial": "일부 보장", "not_covered": "보장 미확인", "unknown": "확인 불가"}
+                    st.write(f"**상태:** {status_label.get(item['status'], item['status'])}")
                     st.write(f"**관심도:** {item['interest_score']:.2f}")
                     if item.get("basis") == "관심사":
                         st.write(f"**선정 근거:** ★ 입력한 관심사 — {', '.join(item.get('basis_concerns', []))}")

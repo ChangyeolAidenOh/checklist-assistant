@@ -118,7 +118,7 @@ def render():
                     st.write(f"- 연령대: {shap.get('age_group', '-')}")
                     occ_effect = shap.get("occupation_effect", {})
                     if occ_effect:
-                        st.write(f"- 직업 영향: {occ_effect}")
+                        st.write("- 직업 영향: " + ", ".join(f"{k} {v:+.2f}" for k, v in occ_effect.items()))
 
                 boosts = shap.get("health_concern_boosts", {})
                 unrecognized = shap.get("health_concern_unrecognized", [])

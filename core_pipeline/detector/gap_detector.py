@@ -63,6 +63,10 @@ CATEGORY_MAPPING = {
 # 진료과 성격의 관심 영역 — 실손 포괄 담보로 "일반 진료비"는 보장될 수 있는 영역
 DEPARTMENT_CATEGORIES = {"치과", "정신건강", "안과", "산부인과", "정형외과", "피부과"}
 
+# 상해·특정 사고 전용 담보 표지. 이런 담보가 진료과 영역에 매칭되면 "보장 확인"이 아니라
+# "일부 보장"이다. 예: 치아파절진단비는 상해로 이가 부러진 경우만 지급하므로 충치·잇몸 치료는 해당 없음.
+NARROW_MARKERS = ("파절", "골절", "화상", "흉터", "상해", "재해", "중환자실")
+
 # 실손에서 흔히 문제가 되는 진료과별 확인 포인트
 DEPARTMENT_CAVEATS = {
     "치과": "치과 치료(보철·임플란트·교정은 실손 보장 제외가 일반적)",
@@ -163,10 +167,18 @@ class GapDetector:
                         f"{DEPARTMENT_CAVEATS.get(cat, '비급여 항목과 보장 제외 치료')}에 대해 실손 처리 기준을 설계사에게 확인해보세요."
                     )
                 else:
-                    note = (
-                        f"{cat} 관련 담보가 일부 있습니다. "
-                        "보장 범위가 본인 상황에 충분한지 설계사와 상의해보세요."
-                    )
+                    narrow_items = covered_categories.get(f"{cat}_items", [])
+                    if narrow_items:
+                        names = ", ".join(narrow_items[:3])
+                        note = (
+                            f"{cat} 관련 담보는 {names} 같은 상해·특정 사고 담보뿐입니다. "
+                            f"질병으로 인한 일반 {cat} 진료가 보장되는지 설계사에게 확인해보세요."
+                        )
+                    else:
+                        note = (
+                            f"{cat} 관련 담보가 일부 있습니다. "
+                            "보장 범위가 본인 상황에 충분한지 설계사와 상의해보세요."
+                        )
             elif status == "not_covered":
                 note = (
                     f"이 요약서에서 {cat} 관련 담보를 찾지 못했습니다. "
@@ -217,13 +229,20 @@ class GapDetector:
         for item in coverage.coverage_items:
             # match on category label AND 담보명 (손해보험 요약서는 category가 거칠고 담보명이 구체적)
             cat_key = f"{item.category} {item.item_name}"
+            narrow = any(m in item.item_name for m in NARROW_MARKERS)
             for prefix, mapped_cats in CATEGORY_MAPPING.items():
-                if prefix in cat_key:
-                    for mc in mapped_cats:
-                        result[mc] = "covered"
-                        result[f"{mc}_detail"] = (
-                            f"{item.item_name}: {item.benefit_amount}"
-                        )
+                if prefix not in cat_key:
+                    continue
+                for mc in mapped_cats:
+                    status = "partial" if (narrow and mc in DEPARTMENT_CATEGORIES) else "covered"
+                    if result.get(mc) == "covered":
+                        continue  # a broad 담보 already covers this category
+                    if result.get(mc) == "partial" and status == "partial":
+                        result[f"{mc}_items"].append(item.item_name)
+                        continue
+                    result[mc] = status
+                    result[f"{mc}_items"] = [item.item_name]
+                    result[f"{mc}_detail"] = f"{item.item_name}: {item.benefit_amount}"
 
         return result
 
